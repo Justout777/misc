@@ -1,0 +1,36 @@
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+- group: AzureVirtualDesktop
+
+jobs:
+- job:
+  steps:
+  - task: AzureCLI@2
+    displayName: Create RG for compute gallery
+    name: create_rg_computegallery
+    inputs:
+      azureSubscription: $(ServiceConnectionName)
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az account set --subscription $(subscriptionID)
+        az group create --location $(location) --name $(RgGalleryName)
+
+  - task: AzureCLI@2
+    displayName: Deploy compute gallery 
+    name: deploy_compute_gallery
+    inputs:
+      azureSubscription: $(ServiceConnectionName)
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az account set --subscription $(subscriptionID)
+        az deployment group create \
+        --resource-group $(RgGalleryName) \
+        --template-file AzureVirtualDesktop/AVD-Image/bicep/main.computegallery.bicep \
+        --parameters AzureVirtualDesktop/AVD-Image/bicep/parameters.computegallery.json \
+        --name $(Build.BuildNumber)

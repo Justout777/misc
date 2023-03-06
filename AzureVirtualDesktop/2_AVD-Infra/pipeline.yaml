@@ -1,0 +1,40 @@
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+- group: AzureVirtualDesktop
+
+jobs:
+- job:
+  steps:
+
+  - task: AzureCLI@2
+    displayName: Create RG for infra
+    name: create_rg_infra
+    inputs:
+      azureSubscription: $(ServiceConnectionName)
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az account set --subscription $(subscriptionID)
+        az group create --location $(location) --name $(RgInfraName)
+
+  - task: AzureCLI@2
+    displayName: Deploy infra
+    name: deploy_infra
+    inputs:
+      azureSubscription: $(ServiceConnectionName)
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az account set --subscription $(subscriptionID)
+        az deployment group create \
+        --resource-group $(RgInfraName) \
+        --template-file AzureVirtualDesktop/AVD-Infra/bicep/main.infra.bicep \
+        --parameters AzureVirtualDesktop/AVD-Infra/bicep/parameters.infra.json \
+        --name $(Build.BuildNumber)
+
+
+

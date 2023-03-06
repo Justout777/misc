@@ -1,0 +1,49 @@
+trigger: none
+
+pool:
+  vmImage: ubuntu-latest
+
+variables:
+- group: AzureVirtualDesktop
+
+jobs:
+- job:
+  steps:
+  - task: AzurePowerShell@5
+    name: registrationtokenvm
+    inputs:
+      azureSubscription: $(ServiceConnectionName)
+      ScriptType: 'InlineScript'
+      Inline: |
+        $token= (New-AzWvdRegistrationInfo -subscriptionId $(subscriptionID) -ResourceGroupName $(RgInfraName) -HostPoolName $(hostpoolName) -ExpirationTime (Get-Date).AddDays(1)).token
+        echo "##vso[task.setvariable variable=registrationToken;]$token"
+      azurePowerShellVersion: 'LatestVersion'
+
+  - task: AzureCLI@2
+    displayName: Create RG for vm
+    name: create_rg_vm
+    inputs:
+      azureSubscription: $(ServiceConnectionName)
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az account set --subscription $(subscriptionID)
+        az group create --location $(location) --name $(RgVMName)
+
+  - task: AzureCLI@2
+    displayName: Deploy vm
+    name: deploy_vm
+    inputs:
+      azureSubscription: $(ServiceConnectionName)
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        az account set --subscription $(subscriptionID)
+        az deployment group create \
+        --mode Complete \
+        --resource-group $(RgVMName) \
+        --template-file AzureVirtualDesktop/AVD-VM/bicep/main.vm.bicep \
+        --parameters AzureVirtualDesktop/AVD-VM/bicep/parameters.vm.json \
+        --parameters registrationInfoToken=$(registrationToken) \
+        --name $(Build.BuildNumber)
+
